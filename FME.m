@@ -5,6 +5,15 @@ function output = FME( impath1, impath2 )
     [f2, d2] = vl_sift(single(im2));
     [matches, scores] = vl_ubcmatch(d1, d2);
     
+    f1 = f1(1:2,:);
+    f2 = f2(1:2,:);
+    mx = sum( f1(1,:) ) / length(f1);
+    my = sum( f1(2,:) ) / length(f1);
+    d = sum( sqrt( (f1(1,:)-mx).^2 + (f1(2,:)-my).^2 ) ) / length(f1);
+    T = [sqrt(2)/d, 0,         -mx*sqrt(2)/d;
+         0,         sqrt(2)/d, -mx*sqrt(2)/d;
+         0,         0,         1             ];
+    
     A = zeros(length(matches),9);
     for m = 1:length(matches)
         x1 = f1(1,matches(1,m));
