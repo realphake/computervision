@@ -20,4 +20,12 @@ function output = FME( impath1, impath2 )
     F(:,2) = V(4:6,column);
     F(:,3) = V(7:9,column);
     
+    [Uf, Df, Vf] = svd(F);
+    diagonal = diag(Df);
+    [smallestf, columnf] = min(abs(diagonal));
+    diagonal(columnf) = 0;
+    newDf = diag(diagonal);
+    
+    F = Uf * newDf * Vf'
+    
 end
