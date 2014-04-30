@@ -1,19 +1,18 @@
 function F = FME( impath1, impath2, norm )
-    if ( norm )
-        F = FMEnorm( impath1, impath2 );
-    else
-        F = FMEregular( impath1, impath2 );
-    end
-end
-
-
-function F = FMEregular( impath1, impath2 )
     im1 = imread(impath1);
     im2 = imread(impath2);
     [f1, d1] = vl_sift(single(im1));
     [f2, d2] = vl_sift(single(im2));
     [matches, scores] = vl_ubcmatch(d1, d2);
     
+    if ( norm )
+        F = FMEnorm( f1, f2, matches );
+    else
+        F = FMEregular( f1, f2, matches );
+    end
+end
+
+function F = FMEregular( f1, f2, matches )
     A = zeros(length(matches),9);
     for m = 1:length(matches)
         x1 = f1(1,matches(1,m));
@@ -22,8 +21,8 @@ function F = FMEregular( impath1, impath2 )
         y1p = f2(2,matches(2,m));
         A(m,:) = [x1*x1p, x1*y1p, x1, y1*x1p, y1*y1p, y1, x1p, y1p, 1];
     end
-    [U, D, V] = svd(A);
-    [smallest, column] = min(min(abs(V)));
+    [~, ~, V] = svd(A);
+    [~, column] = min(min(abs(V)));
     F = zeros(3,3);
     F(:,1) = V(1:3,column);
     F(:,2) = V(4:6,column);
@@ -31,7 +30,7 @@ function F = FMEregular( impath1, impath2 )
     
     [Uf, Df, Vf] = svd(F);
     diagonal = diag(Df);
-    [smallestf, columnf] = min(abs(diagonal));
+    [~, columnf] = min(abs(diagonal));
     diagonal(columnf) = 0;
     newDf = diag(diagonal);
     
@@ -39,13 +38,7 @@ function F = FMEregular( impath1, impath2 )
     
 end
 
-function F = FMEnorm( impath1, impath2 )
-    im1 = imread(impath1);
-    im2 = imread(impath2);
-    [f1, d1] = vl_sift(single(im1));
-    [f2, d2] = vl_sift(single(im2));
-    [matches, scores] = vl_ubcmatch(d1, d2);
-    
+function F = FMEnorm( f1, f2, matches )
     f1 = [f1(1:2,:); ones(1,length(f1))];
     mx = sum( f1(1,:) ) / length(f1);
     my = sum( f1(2,:) ) / length(f1);
@@ -71,8 +64,8 @@ function F = FMEnorm( impath1, impath2 )
         y1p = f2hat(2,matches(2,m));
         A(m,:) = [x1*x1p, x1*y1p, x1, y1*x1p, y1*y1p, y1, x1p, y1p, 1];
     end
-    [U, D, V] = svd(A);
-    [smallest, column] = min(min(abs(V)));
+    [~, ~, V] = svd(A);
+    [~, column] = min(min(abs(V)));
     Fhat = zeros(3,3);
     Fhat(:,1) = V(1:3,column);
     Fhat(:,2) = V(4:6,column);
@@ -80,7 +73,7 @@ function F = FMEnorm( impath1, impath2 )
     
     [Uf, Df, Vf] = svd(Fhat);
     diagonal = diag(Df);
-    [smallestf, columnf] = min(abs(diagonal));
+    [~, columnf] = min(abs(diagonal));
     diagonal(columnf) = 0;
     newDf = diag(diagonal);
     
@@ -88,3 +81,5 @@ function F = FMEnorm( impath1, impath2 )
     F = T2' * Fhat * T1;
     
 end
+
+
