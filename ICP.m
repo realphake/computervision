@@ -1,4 +1,4 @@
-function [T_total, R_total] = ICP( base, target, sampleSize, sampleTech )
+function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech )
     R = eye(3);
     R_total = eye(3);
     T = [0, 0, 0];
@@ -15,13 +15,6 @@ function [T_total, R_total] = ICP( base, target, sampleSize, sampleTech )
     
     baseCloudCenter = mean(baseCloud,1);
     targetCloudCenter = mean(targetCloud,1);
-    
-%   figure(1);
-%   scatter3(baseCloud(:,1),baseCloud(:,2),baseCloud(:,3), 3, [1, 0, 0]);
-%   hold on
-%   scatter3(targetCloud(:,1),targetCloud(:,2),targetCloud(:,3), 3, [0, 0.5, 0]);
-%   hold off
-%   pause(3);
 
     A = (baseCloud - repmat(baseCloudCenter, sampleSize,1))' * (targetCloud - repmat(targetCloudCenter, sampleSize,1));
     [U,S,V] = svd(A);
@@ -35,7 +28,7 @@ function [T_total, R_total] = ICP( base, target, sampleSize, sampleTech )
     pause on
     target_new = target;
     iterations = 0;
-    while error ~= old_error && iterations ~= 50 
+    while error ~= old_error && iterations ~= 20 
         target_new = (R * target_new')' + repmat(T,length(target),1);
         
         baseCloud = subsampling(base, sampleSize, sampleTech);
@@ -52,17 +45,13 @@ function [T_total, R_total] = ICP( base, target, sampleSize, sampleTech )
         T_total = T_total + T;
         targetCloud = (R * targetCloud')' + repmat(T,sampleSize,1);
         old_error = error;
-        error = norm(mean(baseCloud-targetCloud,1));
-%         [x, y, z] = decompose_rotation(R_total);
+        error = rms(baseCloud-targetCloud,1);
+%       [x, y, z] = decompose_rotation(R_total);
         iterations = iterations + 1;
+        %displayPointClouds(baseCloud, targetCloud);
+        %pause(2);
     end
-%     figure(1);
-%     showResultBase = subsampling(base, 3000, 'uniform');
-%     showResultTarget = subsampling(target_new, 3000, 'uniform');
-%     scatter3(showResultBase(:,1),showResultBase(:,2),showResultBase(:,3), 3, [1, 0, 0]);
-%     hold on
-%     scatter3(showResultTarget(:,1),showResultTarget(:,2),showResultTarget(:,3), 3, [0, 0.5, 0]);
-%     hold off
+    output = (R * target_new')' + repmat(T,length(target),1);
     pause off
 end
 
@@ -90,3 +79,16 @@ end
 % function noNoise = removeNoise(noise)
 %     noNoise = noise(noise(:,3) < 2,:);
 % end
+
+function displayPointClouds(PointCloud1, PointCloud2)
+    figure(1);
+    clf();
+    hold on
+    stepsize = ceil(size(PointCloud1,1)/5000);
+    uniform = PointCloud1( 1:stepsize:size(PointCloud1,1), : );
+    scatter3(uniform(:,1),uniform(:,2),uniform(:,3), 3, [1, 0, 0]);
+    stepsize = ceil(size(PointCloud2,1)/5000);
+    uniform = PointCloud2( 1:stepsize:size(PointCloud2,1), : );
+    scatter3(uniform(:,1),uniform(:,2),uniform(:,3), 3, [0, 0.5, 0]);
+    hold off
+end
