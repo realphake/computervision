@@ -17,7 +17,11 @@ function F = FMEransac( f1, f2, matches )
     for iterations = 1:1000
         subsample = randomcolumns(matches, 8);
         F = FMEnorm( f1, f2, subsample );
-        %process
+        % numer = (pn'*F*p)^2;
+        % Fp = (F*p);
+        % Fpn = (F'*pn);
+        % denom = Fp(1)^2 + Fp(2)^2 + Fpn(1)^2 + Fpn(2)^2;
+        % d = numer / denom;
     end
     
 end
@@ -98,5 +102,3 @@ function F = FMEnorm( f1, f2, matches )
     F = T2' * Fhat * T1;
     
 end
-
-
