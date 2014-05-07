@@ -1,14 +1,28 @@
-function F = FME( impath1, impath2, norm )
+function F = FME( impath1, impath2, norm, ransac )
     im1 = imread(impath1);
     im2 = imread(impath2);
     [f1, d1] = vl_sift(single(im1));
     [f2, d2] = vl_sift(single(im2));
     [matches, scores] = vl_ubcmatch(d1, d2);
-    
-    if ( norm )
-        F = FMEnorm( f1, f2, matches );
-    else
-        F = FMEregular( f1, f2, matches );
+    if ( ransac )
+        for iterations = 1:1000
+            subsample = randomcolumns(matches, 8);
+            F = FMEnorm( f1, f2, subsample );
+            %process
+        end
+    else 
+        if ( norm )
+            F = FMEnorm( f1, f2, matches );
+        else
+            F = FMEregular( f1, f2, matches );
+        end
+    end
+end
+
+function picks = randomcolumns(columns, number)
+    picks = zeros(2,number);
+    for i = 1:number
+        picks(:,i) = columns( :, random('unid', length(columns)) );
     end
 end
 
