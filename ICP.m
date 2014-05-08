@@ -31,7 +31,9 @@ function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech 
     while error ~= old_error && iterations ~= 20 
         target_new = (R * target_new')' + repmat(T,length(target),1);
         
-        baseCloud = subsampling(base, sampleSize, sampleTech);
+        if ( strcmpi( sampleTech, 'random' ) )
+            baseCloud = subsampling(base, sampleSize, sampleTech);
+        end
         IDX = knnsearch(target_new,baseCloud, 'NSMethod','kdtree');
         targetCloud = target_new(IDX,:);
         
@@ -61,6 +63,12 @@ function out = subsampling(in, sampleSize, technique)
     end
     if ( strcmpi( technique, 'random' ) )
         out = in(randsample(length(in), sampleSize), :);
+    end
+    if ( strcmpi( technique, 'normals' ) )
+        out = sampleNormalSpace(in, sampleSize);
+    end
+    if ( strcmpi( technique, 'none' ) )
+        out = in;
     end
 end
 
@@ -92,3 +100,13 @@ function displayPointClouds(PointCloud1, PointCloud2)
     scatter3(uniform(:,1),uniform(:,2),uniform(:,3), 3, [0, 0.5, 0]);
     hold off
 end
+
+function out = sampleNormalSpace(in, sampleSize)
+    mesh = pointCloud2mesh(in);
+    mesh.vertexNormals
+    icosahedron = createIcosahedron(); % 20 sides as bins for the normals
+    TRI = TriRep(icosahedron.faces, icosahedron.vertices(:,1),icosahedron.vertices(:,2),icosahedron.vertices(:,3));
+    faceN
+    
+end
+
