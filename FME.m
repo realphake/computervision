@@ -1,4 +1,5 @@
 function F = FME( impath1, impath2, method )
+    run('vlfeat-0.9.18/toolbox/vl_setup');
     im1 = imread(impath1);
     im2 = imread(impath2);
     [f1, d1] = vl_sift(single(im1));
@@ -17,6 +18,7 @@ function F = FMEransac( f1, f2, matches )
     for iterations = 1:1000
         subsample = randomcolumns(matches, 8);
         F = FMEnorm( f1, f2, subsample );
+        
         % numer = (pn'*F*p)^2;
         % Fp = (F*p);
         % Fpn = (F'*pn);
@@ -77,28 +79,7 @@ function F = FMEnorm( f1, f2, matches )
     
     f1hat = T1*f1;
     f2hat = T2*f2;
-    A = zeros(length(matches),9);
-    for m = 1:length(matches)
-        x1 = f1hat(1,matches(1,m));
-        y1 = f1hat(2,matches(1,m));
-        x1p = f2hat(1,matches(2,m));
-        y1p = f2hat(2,matches(2,m));
-        A(m,:) = [x1*x1p, x1*y1p, x1, y1*x1p, y1*y1p, y1, x1p, y1p, 1];
-    end
-    [~, ~, V] = svd(A);
-    [~, column] = min(min(abs(V)));
-    Fhat = zeros(3,3);
-    Fhat(:,1) = V(1:3,column);
-    Fhat(:,2) = V(4:6,column);
-    Fhat(:,3) = V(7:9,column);
-    
-    [Uf, Df, Vf] = svd(Fhat);
-    diagonal = diag(Df);
-    [~, columnf] = min(abs(diagonal));
-    diagonal(columnf) = 0;
-    newDf = diag(diagonal);
-    
-    Fhat = Uf * newDf * Vf';
+    Fhat = FMEregular( f1hat, f2hat, matches );
     F = T2' * Fhat * T1;
     
 end
