@@ -1,16 +1,21 @@
-function F = FME( impath1, impath2, method )
+function [F,matches] = FME( impath1, impath2, method )
     run('vlfeat-0.9.18/toolbox/vl_setup');
-    im1 = imread(impath1);
-    im2 = imread(impath2);
-    [f1, d1] = vl_sift(single(im1));
-    [f2, d2] = vl_sift(single(im2));
+    im1 = imresize(imread(impath1), [300 NaN]);
+    im2 = imresize(imread(impath2), [300 NaN]);
+    disp('images read.');
+    [f1, d1] = vl_sift(single(rgb2gray(im1)));
+    [f2, d2] = vl_sift(single(rgb2gray(im2)));
+    disp('features found.')
     [matches, ~] = vl_ubcmatch(d1, d2);
+    disp('features matches.')
     if ( strcmp(method, 'ransac') )
         F = FMEransac( f1, f2, matches, 0.01 );
     elseif ( strcmp(method, 'normalized') )
         F = FMEnorm( f1, f2, matches );
     elseif ( strcmp(method, 'regular') )
         F = FMEregular( f1, f2, matches );
+    else
+        F = eye(3);
     end
 end
 
