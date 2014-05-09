@@ -6,7 +6,7 @@ function F = FME( impath1, impath2, method )
     [f2, d2] = vl_sift(single(im2));
     [matches, ~] = vl_ubcmatch(d1, d2);
     if ( strcmp(method, 'ransac') )
-        F = FMEransac( f1, f2, matches );
+        F = FMEransac( f1, f2, matches, 0.01 );
     elseif ( strcmp(method, 'normalized') )
         F = FMEnorm( f1, f2, matches );
     elseif ( strcmp(method, 'regular') )
@@ -14,18 +14,31 @@ function F = FME( impath1, impath2, method )
     end
 end
 
-function F = FMEransac( f1, f2, matches )
+function F = FMEransac( f1, f2, matches, threshold )
+    bestSetOfInliers = [];
     for iterations = 1:1000
         subsample = randomcolumns(matches, 8);
-        F = FMEnorm( f1, f2, subsample );
-        
-        % numer = (pn'*F*p)^2;
-        % Fp = (F*p);
-        % Fpn = (F'*pn);
-        % denom = Fp(1)^2 + Fp(2)^2 + Fpn(1)^2 + Fpn(2)^2;
-        % d = numer / denom;
+        Ftemp = FMEnorm( f1, f2, subsample );
+        theseInliers = [];
+        for match = matches
+            p = f1(:,match(1));
+            pn = f2(:,match(2));
+            p = [p(1:2);1];
+            pn = [pn(1:2);1];
+            numerator = (pn'*Ftemp*p)^2;
+            Fp = (Ftemp*p);
+            Fpn = (Ftemp'*pn);
+            denominator = Fp(1)^2 + Fp(2)^2 + Fpn(1)^2 + Fpn(2)^2;
+            distance = numerator / denominator;
+            if (distance < threshold)
+                theseInliers = [theseInliers,match];
+            end
+        end
+        if (length( theseInliers ) > length( bestSetOfInliers ))
+            bestSetOfInliers = theseInliers;
+        end
     end
-    
+    F = FMEnorm( f1, f2, bestSetOfInliers );
 end
 
 function picks = randomcolumns(columns, number)
