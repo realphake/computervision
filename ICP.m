@@ -17,23 +17,10 @@ function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech 
     % selecting the first three columns that have the actual x y z
     % coordinates
     baseCloud = subsampling(base, sampleSize, sampleTech);
-    base_length = length(baseCloud);
     % target is not sampled: the search is done in all its points
-    IDX = knnsearch(target,baseCloud, 'NSMethod','kdtree');
-    targetCloud = target(IDX,:);
-    
-    baseCloudCenter = mean(baseCloud,1);
-    targetCloudCenter = mean(targetCloud,1);
 
-    A = (baseCloud - repmat(baseCloudCenter, base_length,1))' * (targetCloud - repmat(targetCloudCenter, base_length,1));
-    [U,S,V] = svd(A);
-    R_total = R_total*(U*V');
-    R = U*V';
-    T = baseCloudCenter - (targetCloudCenter * R');
-    T_total = T_total + T;
-    targetCloud = (R * targetCloud')' + repmat(T,base_length,1);
     old_error = -1;
-    error = pdist([rms(baseCloud-targetCloud,1); 0 0 0], 'euclidean');
+    error = 0;
     pause on
     target_new = target;
     iterations = 0;
@@ -48,17 +35,17 @@ function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech 
         
         baseCloudCenter = mean(baseCloud,1);
         targetCloudCenter = mean(targetCloud,1);
-        A = (baseCloud - repmat(baseCloudCenter, base_length,1))' * (targetCloud - repmat(targetCloudCenter, base_length,1));
+        A = (baseCloud - repmat(baseCloudCenter, sampleSize,1))' * (targetCloud - repmat(targetCloudCenter, sampleSize,1));
         [U,S,V] = svd(A);
         R_total = R_total*(U*V');
         R = U*V';
         T = baseCloudCenter - (targetCloudCenter * R');
         T_total = T_total + T;
-        targetCloud = (R * targetCloud')' + repmat(T,base_length,1);
+        targetCloud = (R * targetCloud')' + repmat(T,sampleSize,1);
         old_error = error;
-        error = pdist([rms(baseCloud-targetCloud,1); 0 0 0], 'euclidean');
+        error = pdist([rms(baseCloud-targetCloud,1); 0 0 0], 'euclidean')
 %       [x, y, z] = decompose_rotation(R_total);
-        iterations = iterations + 1;
+        iterations = iterations + 1
         %displayPointClouds(baseCloud, targetCloud);
         %pause(2);
     end
