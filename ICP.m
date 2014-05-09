@@ -111,7 +111,11 @@ function displayPointClouds(PointCloud1, PointCloud2)
 end
 
 function out = sampleNormalSpace(in, sampleSize)
+    % pointCloud2mesh is created by Ajmal Saeed Mian
+    % see specific .m file for license and credits
     mesh = pointCloud2mesh(in);
+    % createIcosahedron is created by David Legland
+    % see specific .m file for license and credits
     icosahedron = createIcosahedron(); % 20 sides as bins for the normals
     normals_icosahedron = surfaceNormals( icosahedron );
     similarity = mesh.vertexNormals * normals_icosahedron';
@@ -122,7 +126,8 @@ function out = sampleNormalSpace(in, sampleSize)
     end
 end
 
-% copied from pointCloud2mesh.m
+% copied from pointCloud2mesh.m and adjusted to only get the surface
+% normals
 % see specific .m file for license and credits
 function normals_out = surfaceNormals( mesh )
     normals_out = zeros(length(mesh.faces), 3);
