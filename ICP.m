@@ -19,17 +19,17 @@ function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech 
     baseCloud = subsampling(base, sampleSize, sampleTech);
     % target is not sampled: the search is done in all its points
 
-    old_error = -1;
     error = 0;
     pause on
     target_new = target;
     iterations = 0;
-    while error ~= old_error && iterations ~= 50 
+    epsilon_err = 0.000000000000001;
+    good_enough = false;
+    while ~ good_enough
         target_new = (R * target_new')' + repmat(T,length(target),1);
         
-        if strcmpi( sampleTech, 'random' ) 
-            baseCloud = subsampling(base, sampleSize, sampleTech);
-        end
+        baseCloud = subsampling(base, sampleSize, sampleTech);
+
         IDX = knnsearch(target_new,baseCloud, 'NSMethod','kdtree');
         targetCloud = target_new(IDX,:);
         
@@ -42,12 +42,16 @@ function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech 
         T = baseCloudCenter - (targetCloudCenter * R');
         T_total = T_total + T;
         targetCloud = (R * targetCloud')' + repmat(T,sampleSize,1);
+
         old_error = error;
-        error = pdist([rms(baseCloud-targetCloud,1); 0 0 0], 'euclidean')
+        error = pdist([rms(baseCloud-targetCloud,1); 0 0 0], 'euclidean');
 %       [x, y, z] = decompose_rotation(R_total);
         iterations = iterations + 1
         %displayPointClouds(baseCloud, targetCloud);
         %pause(2);
+        diff_err_normalized = abs(( error - old_error ) / old_error)
+        good_enough = diff_err_normalized < epsilon_err && iterations ~= 50;
+        
     end
     output = (R * target_new')' + repmat(T,length(target),1);
     pause off
