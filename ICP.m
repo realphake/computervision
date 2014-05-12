@@ -1,4 +1,4 @@
-function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech )
+function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech, targetNormals)
 
     % Expects base to be of size N by 3, target to be of size M by 3
     % Sample techniques:
@@ -14,11 +14,14 @@ function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech 
     R_total = eye(3);
     T = [0, 0, 0];
     T_total = [0, 0, 0];
-    
-    baseCloud = subsampling(base, sampleSize, sampleTech);
+    if ( strcmpi( sampleTech, 'normals' ) ) && nargin == 5
+        baseCloud = subsampling(base, sampleSize, sampleTech, targetNormals);
+    else
+        baseCloud = subsampling(base, sampleSize, sampleTech);
+    end
     base_length = length(baseCloud);
     % target is not sampled: the search is done in all its points
-
+    
     error = 0;
     pause on
     target_new = target;
@@ -31,7 +34,7 @@ function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech 
         % only needs resampling if random, the other methods are deterministic
         if strcmpi( sampleTech, 'random' ) 
             baseCloud = subsampling(base, sampleSize, sampleTech);
-	end
+        end
 	
         IDX = knnsearch(target_new,baseCloud, 'NSMethod','kdtree');
         targetCloud = target_new(IDX,:);
@@ -48,26 +51,28 @@ function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech 
 
         old_error = error;
         error = pdist([rms(baseCloud-targetCloud,1); 0 0 0], 'euclidean');
-%       [x, y, z] = decompose_rotation(R_total);
+        %[x, y, z] = decompose_rotation(R_total);
         iterations = iterations + 1
         %displayPointClouds(baseCloud, targetCloud);
         %pause(2);
-        diff_err_normalized = abs(( error - old_error ) / old_error)
-        good_enough = diff_err_normalized < epsilon_err || iterations == 50;
-        
+        diff_err_normalized = abs(( error - old_error ) / old_error);
+        good_enough = diff_err_normalized < epsilon_err; %|| iterations == 50;
     end
     output = (R * target_new')' + repmat(T,length(target),1);
     pause off
 end
 
-function out = subsampling(in, sampleSize, technique)
+function out = subsampling(in, sampleSize, technique, normals)
     if ( strcmpi( technique, 'uniform' ) )
         out = uniformSubsampling(in, sampleSize);
     end
     if ( strcmpi( technique, 'random' ) )
         out = in(randsample(length(in), sampleSize), :);
     end
-    if ( strcmpi( technique, 'normals' ) )
+    if ( strcmpi( technique, 'normals' ) ) && nargin == 4
+        out = sampleNormalSpace(in, sampleSize, normals);
+    end
+    if ( strcmpi( technique, 'normals' ) ) && nargin == 3
         out = sampleNormalSpace(in, sampleSize);
     end
     if ( strcmpi( technique, 'none' ) )
@@ -104,15 +109,19 @@ function displayPointClouds(PointCloud1, PointCloud2)
     hold off
 end
 
-function out = sampleNormalSpace(in, sampleSize)
+function out = sampleNormalSpace(in, sampleSize, normals)
+    % were apparently not needed since the normals were supplied
     % pointCloud2mesh is created by Ajmal Saeed Mian
     % see specific .m file for license and credits
-    mesh = pointCloud2mesh(in);
+    if nargin == 2
+        mesh = pointCloud2mesh(in);
+        normals = mesh.vertexNormals;
+    end
     % createIcosahedron is created by David Legland
     % see specific .m file for license and credits
     icosahedron = createIcosahedron(); % 20 sides as bins for the normals
     normals_icosahedron = surfaceNormals( icosahedron );
-    similarity = mesh.vertexNormals * normals_icosahedron';
+    similarity = normals * normals_icosahedron';
     [values, binning] = max(similarity, [], 2);
     out = [];
     for i = 1:20
