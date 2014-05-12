@@ -18,12 +18,12 @@ function [ out_pointcloud, R, T ] = merge_then_estimate(useTheseNumbers, sampleS
             next_normals = readPcd(['00000000', sprintf('%02d', i), '_normal.pcd']);
             [ Target, next_normals ] = removeNoise(Target, cutoffpoint_noise, next_normals); %target
             [output, R_obtained, T_obtained] = ICP(out_pointcloud, Target, sampleSize, sampleTech, normals);
+            normals = [normals;next_normals];
         else
             Target = removeNoise(Target, cutoffpoint_noise); %target
             [output, R_obtained, T_obtained] = ICP(out_pointcloud, Target, sampleSize, sampleTech);
         end
         out_pointcloud = [out_pointcloud;output];
-        normals = [normals;next_normals];
         merges_done = merges_done+1;
         T(:, :, merges_done) = T_obtained;
         R(:, :, merges_done) = R_obtained;
