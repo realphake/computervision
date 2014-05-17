@@ -3,5 +3,5 @@ function displayPointCloud(out_pointcloud)
     uniform = out_pointcloud( 1:stepsize:size(out_pointcloud,1), : );
     % fscatter was created by Felix Morsdorf for which we take no credit
     clf();
-    fscatter3(uniform(:,1),uniform(:,2),uniform(:,3), [0 10]);
+    fscatter3(uniform(:,1),uniform(:,2),uniform(:,3), [0 10], 1 );
 end
