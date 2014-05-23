@@ -30,11 +30,23 @@ data_t = data';
     % while we have active edges, select next edge
     while active_index <= length(active_edges)
         % find closest pivoted point from edge
-        midpoint = (data(active_edges(active_index,1),:)+data(active_edges(active_index,2),:))./2;
+        A = data(active_edges(active_index,1),:);
+        B = data(active_edges(active_index,2),:);
+        midpoint = (A+B)./2;
         neighbors = nearestneighbour(midpoint', data_t, 'Radius', 2*ro);
         % exclude those that have been used (glued)
         [~, ia] = intersect(neighbors, used_indices);
         neighbors(ia) = [];
+        centers = [];
+        syms x y z
+        solutions = solve(sprintf('(x-%d)^2+(y-%d)^2+(z-%d)^2 = %d^2, (x-%d)^2+(y-%d)^2+(z-%d)^2 = %d^2, (x-%d)^2+(y-%d)^2+(z-%d)^2 = %d^2,',A(1),A(2),A(3),ro,B(1),B(2),B(3),ro,C(1),C(2),C(3),ro));
+        active_edge_center = [solutions.x, solutions.y, solutions.z];
+        for i=neighbors
+            C = data(active_edges(i,1),:);
+            solutions = solve(sprintf('(x-%d)^2+(y-%d)^2+(z-%d)^2 = %d^2, (x-%d)^2+(y-%d)^2+(z-%d)^2 = %d^2, (x-%d)^2+(y-%d)^2+(z-%d)^2 = %d^2,',A(1),A(2),A(3),ro,B(1),B(2),B(3),ro,C(1),C(2),C(3),ro));
+            centers = [centers ; solutions.x, solutions.y, solutions.z];
+        end
+        
         % find ball pivots for each neighboring point and determine
             % if point is unused or in the front
             % then 
@@ -48,4 +60,3 @@ data_t = data';
     end
 
 end
-
