@@ -15,6 +15,16 @@ function pointViewMatrix = ChainFME( )
         temp(i+1, matches(1,:)) = matches(2,:);
         pointViewMatrix = temp;
     end
-
+    
+    [U, W, V] = svd(pointViewMatrix);
+    U3 = U(:,1:3);
+    V3 = V(:,1:3);
+    W3 = W(1:3,1:3);
+    
+    M = U3* (W3.^0.5);
+    S = (W3.^0.5) * (V3');
+    % OR:
+    % M = U3
+    % S = W3* (V3')
+    
 end
-
