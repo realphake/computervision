@@ -6,7 +6,7 @@ function [F,matches, f1,f2] = FME( impath1, impath2, method )
     [f2, d2] = vl_sift(single(rgb2gray(im2)));
     [matches, ~] = vl_ubcmatch(d1, d2);
     if ( strcmp(method, 'ransac') )
-        F = FMEransac( f1, f2, matches, 0.01 );
+        [F,bestSetOfInliers] = FMEransac( f1, f2, matches, 0.1 );
     elseif ( strcmp(method, 'normalized') )
         F = FMEnorm( f1, f2, matches );
     elseif ( strcmp(method, 'regular') )
@@ -14,9 +14,10 @@ function [F,matches, f1,f2] = FME( impath1, impath2, method )
     else
         F = eye(3);
     end
+    matches = bestSetOfInliers;
 end
 
-function F = FMEransac( f1, f2, matches, threshold )
+function [F,bestSetOfInliers] = FMEransac( f1, f2, matches, threshold )
     bestSetOfInliers = [];
     for iterations = 1:1000
         subsample = randomcolumns(matches, 8);
