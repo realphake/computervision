@@ -1,4 +1,4 @@
-function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech, targetNormals)
+function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize, sampleTech, targetNormals)
 
     % Expects base to be of size N by 3, target to be of size M by 3
     % Sample techniques:
@@ -29,6 +29,9 @@ function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech,
     epsilon_err = 0.000000000000001;
     good_enough = false;
     while ~ good_enough
+        %tmp = [base;target_new];
+        %displayPointCloud(tmp);
+        %input('continue?');
         target_new = (R * target_new')' + repmat(T,length(target),1);
         
         % only needs resampling if random, the other methods are deterministic
@@ -55,7 +58,7 @@ function [output, R_total, T_total] = ICP( base, target, sampleSize, sampleTech,
         iterations = iterations + 1
         %displayPointClouds(baseCloud, targetCloud);
         %pause(2);
-        diff_err_normalized = abs(( error - old_error ) / old_error);
+        diff_err_normalized = abs(( error - old_error ) / old_error)
         good_enough = diff_err_normalized < epsilon_err; %|| iterations == 50;
     end
     output = (R * target_new')' + repmat(T,length(target),1);
