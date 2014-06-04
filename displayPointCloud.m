@@ -1,4 +1,5 @@
 function displayPointCloud(out_pointcloud)
+    % helper function to visualize the pointcloud
     stepsize = ceil(size(out_pointcloud,1)/20000);
     uniform = out_pointcloud( 1:stepsize:size(out_pointcloud,1), : );
     % fscatter was created by Felix Morsdorf for which we take no credit
