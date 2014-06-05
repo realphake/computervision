@@ -1,6 +1,7 @@
 function [M,S, pointViewMatrix] = ChainFME( )
 
-    [~,matches,f1,f2] = FME(sprintf('obj02_%03d.png',16), sprintf('obj02_%03d.png',1), 'ransac');
+    %[~,matches,f1,f2] = FME(sprintf('obj02_%03d.png',16), sprintf('obj02_%03d.png',1), 'ransac');
+    [~,matches,f1,f2] = FME(sprintf('frame00000%03d.png',49), sprintf('frame00000%03d.png',1), 'ransac');
 	f1(1,:) = f1(1,:) - mean(f1(1,:));
     f1(2,:) = f1(2,:) - mean(f1(2,:));
     f2(1,:) = f2(1,:) - mean(f2(1,:));
@@ -12,8 +13,10 @@ function [M,S, pointViewMatrix] = ChainFME( )
     pointViewMatrix(3,:) = f2(1,matchIndexes(2,:));
     pointViewMatrix(4,:) = f2(2,matchIndexes(2,:));
     
-    for i = 1:15
-        [~,matches,f1,f2] = FME(sprintf('obj02_%03d.png',i), sprintf('obj02_%03d.png',i+1), 'ransac');
+    %for i = 1:15
+    for i = 1:48
+        %[~,matches,f1,f2] = FME(sprintf('obj02_%03d.png',i), sprintf('obj02_%03d.png',i+1), 'ransac');
+        [~,matches,f1,f2] = FME(sprintf('frame00000%03d.png',i), sprintf('frame00000%03d.png',i), 'ransac');
         f1(1,:) = f1(1,:) - mean(f1(1,:));
         f1(2,:) = f1(2,:) - mean(f1(2,:));
         f2(1,:) = f2(1,:) - mean(f2(1,:));
