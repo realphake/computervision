@@ -18,15 +18,6 @@ function [F,matches, f1,f2] = FME( impath1, impath2, method )
     end
     matches = bestSetOfInliers;
     
-%     figure;
-%     imshow(im1);
-%     hold on;
-%     scatter(f1(1,bestSetOfInliers(1,:)),f1(2,bestSetOfInliers(1,:)),5,'red');
-%     figure;
-%     imshow(im2);
-%     hold on;
-%     scatter(f2(1,bestSetOfInliers(2,:)),f2(2,bestSetOfInliers(2,:)),5,'red');
-%     hold off;
 end
 
 function [F,bestSetOfInliers] = FMEransac( f1, f2, matches, threshold )
