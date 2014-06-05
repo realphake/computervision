@@ -1,7 +1,9 @@
 function [F,matches, f1,f2] = FME( impath1, impath2, method )
     run('vlfeat-0.9.18/toolbox/vl_setup');
-    im1 = imresize(imread(impath1), [300 NaN]);
-    im2 = imresize(imread(impath2), [300 NaN]);
+    im1 = imresize(imread(impath1), [600 NaN]);
+    im2 = imresize(imread(impath2), [600 NaN]);
+    im1 = imcrop(im1,[250,120,330,330]);
+    im2 = imcrop(im2,[250,120,330,330]);
     [f1, d1] = vl_sift(single(rgb2gray(im1)));
     [f2, d2] = vl_sift(single(rgb2gray(im2)));
     [matches, ~] = vl_ubcmatch(d1, d2);
@@ -15,6 +17,16 @@ function [F,matches, f1,f2] = FME( impath1, impath2, method )
         F = eye(3);
     end
     matches = bestSetOfInliers;
+    
+%     figure;
+%     imshow(im1);
+%     hold on;
+%     scatter(f1(1,bestSetOfInliers(1,:)),f1(2,bestSetOfInliers(1,:)),5,'red');
+%     figure;
+%     imshow(im2);
+%     hold on;
+%     scatter(f2(1,bestSetOfInliers(2,:)),f2(2,bestSetOfInliers(2,:)),5,'red');
+%     hold off;
 end
 
 function [F,bestSetOfInliers] = FMEransac( f1, f2, matches, threshold )
