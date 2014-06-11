@@ -1,9 +1,9 @@
 function [M,S, pointViewMatrix] = ChainFME( )
     [~,matches,f1,f2] = FME(sprintf('frame00000%03d.png',1), sprintf('frame00000%03d.png',2), 'ransac');
-    f1(1,:) = f1(1,:) - mean(f1(1,:));
-    f1(2,:) = f1(2,:) - mean(f1(2,:));
-    f2(1,:) = f2(1,:) - mean(f2(1,:));
-    f2(2,:) = f2(2,:) - mean(f2(2,:));
+%     f1(1,:) = f1(1,:) - mean(f1(1,:));
+%     f1(2,:) = f1(2,:) - mean(f1(2,:));
+%     f2(1,:) = f2(1,:) - mean(f2(1,:));
+%     f2(2,:) = f2(2,:) - mean(f2(2,:));
     
     matchIndexes = matches;
     pointViewMatrix(1,:) = f1(1,matchIndexes(1,:));
@@ -11,10 +11,10 @@ function [M,S, pointViewMatrix] = ChainFME( )
     pointViewMatrix(3,:) = f2(1,matchIndexes(2,:));
     pointViewMatrix(4,:) = f2(2,matchIndexes(2,:));
     
-    for i = 2:3
+    for i = 2:30
         [~,matches,~,f2] = FME(sprintf('frame00000%03d.png',i), sprintf('frame00000%03d.png',i+1), 'ransac');
-        f2(1,:) = f2(1,:) - mean(f2(1,:));
-        f2(2,:) = f2(2,:) - mean(f2(2,:));
+%         f2(1,:) = f2(1,:) - mean(f2(1,:));
+%         f2(2,:) = f2(2,:) - mean(f2(2,:));
         newLine = zeros(1,size(matchIndexes,2));
         newPointViewLine = zeros(2,size(matchIndexes,2));
         for j = 1:length (matches)
