@@ -38,7 +38,7 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
             baseCloud = subsampling(base, sampleSize, sampleTech);
         end
         % search for the nearest neighbor for every point in the baseCloud
-        IDX = knnsearch(KD_treesearcher,baseCloud*R_total-repmat(T_total,length(baseCloud),1));
+        IDX = knnsearch(KD_treesearcher,baseCloud*R_total-repmat(T_total,base_length,1));
         targetCloud = target(IDX,:);
         % compute mean for centering
         baseCloudCenter = mean(baseCloud,1);
@@ -54,7 +54,7 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
         T = baseCloudCenter - (targetCloudCenter * R');
         T_total = T_total + T;
         % we update the target cloud to compute the error
-        targetCloud = (target * R') + repmat(T,base_length,1);
+        targetCloud = (targetCloud * R') + repmat(T,base_length,1);
         old_error = error;
         % error is approximated as the root mean squared distance of the
         % two clouds
