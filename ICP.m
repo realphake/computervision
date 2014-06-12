@@ -25,21 +25,20 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
     end
     base_length = length(baseCloud);
     % target is not sampled: the search is done in all its points
-    
+    KD_treesearcher = KDTreeSearcher(target);
     error = 0;
     iterations = 0;
     epsilon_err = 0.000000000000001;
     good_enough = false;
     while ~ good_enough
         % update target cloud
-        target = (R * target')' + repmat(T,length(target),1);
-
+        target = (target * R') + repmat(T,length(target),1);
         % only needs resampling if random, the other methods are deterministic
         if strcmpi( sampleTech, 'random' ) 
             baseCloud = subsampling(base, sampleSize, sampleTech);
         end
         % search for the nearest neighbor for every point in the baseCloud
-        IDX = knnsearch(target,baseCloud, 'NSMethod','kdtree');
+        IDX = knnsearch(KD_treesearcher,baseCloud*R_total-repmat(T_total,length(baseCloud),1));
         targetCloud = target(IDX,:);
         % compute mean for centering
         baseCloudCenter = mean(baseCloud,1);
@@ -55,12 +54,11 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
         T = baseCloudCenter - (targetCloudCenter * R');
         T_total = T_total + T;
         % we update the target cloud to compute the error
-        targetCloud = (R * targetCloud')' + repmat(T,base_length,1);
+        targetCloud = (target * R') + repmat(T,base_length,1);
         old_error = error;
         % error is approximated as the root mean squared distance of the
         % two clouds
         error = pdist([rms(baseCloud-targetCloud,1); 0 0 0], 'euclidean');
-
         iterations = iterations + 1;
 		disp(['iteration: ', num2str(iterations)]);
         % the to be evaluated distance is normalized such that we can use
@@ -73,9 +71,8 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
         else
             good_enough = diff_err_normalized < epsilon_err || iterations == maxIterations;
         end
-        
     end
-    output = (R * target')' + repmat(T,length(target),1);
+    output = (target * R') + repmat(T,length(target),1);
 end
 
 function out = subsampling(in, sampleSize, technique, normals)
@@ -156,3 +153,4 @@ function normals_out = surfaceNormals( mesh )
         normals_out(ii,:)=normal;      
     end
 end
+
