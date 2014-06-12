@@ -18,6 +18,8 @@ function[ out_pointcloud, R, T, iterations_stats ] = merge_then_estimate(useThes
     T = zeros(1, 3, length(useTheseNumbers));
     R = zeros(3, 3, length(useTheseNumbers));
     R(:, :, 1) = eye(3);
+    last_T = [0, 0, 0];
+    last_R = eye(3);
     cutoffpoint_noise = 2;
     out_pointcloud = readPcd(['00000000', sprintf('%02d', useTheseNumbers(1)), '.pcd']);
     % remove noise from the read point cloud
@@ -56,9 +58,10 @@ function[ out_pointcloud, R, T, iterations_stats ] = merge_then_estimate(useThes
 
         % update the output variables
         out_pointcloud = [Base;output];
-
+        last_T = last_T - T_obtained * last_R;
+        last_R = last_R * R_obtained';
         merges_done = merges_done+1;
-        T(:, :, merges_done) = T_obtained;
-        R(:, :, merges_done) = R_obtained;
+        T(:, :, merges_done) = last_T;
+        R(:, :, merges_done) = last_R;
     end
 end

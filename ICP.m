@@ -38,7 +38,8 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
             baseCloud = subsampling(base, sampleSize, sampleTech);
         end
         % search for the nearest neighbor for every point in the baseCloud
-        IDX = knnsearch(KD_treesearcher,baseCloud*R_total'-repmat(T_total,base_length,1));
+        IDX = knnsearch(KD_treesearcher,(baseCloud*R_total')-repmat(T_total,base_length,1));
+        %IDX = knnsearch(target,baseCloud);
         targetCloud = target(IDX,:);
         % compute mean for centering
         baseCloudCenter = mean(baseCloud,1);
@@ -47,8 +48,8 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
         A = (baseCloud - repmat(baseCloudCenter, base_length,1))' * (targetCloud - repmat(targetCloudCenter, base_length,1));
         [U,S,V] = svd(A);
         % get rotation from the SVD
-        R_total = R_total*(U*V')';
         R = U*V';
+        R_total = R_total*R';
         % after rotating the target cloud we calculate the distance between
         % matched clouds
         T = baseCloudCenter - (targetCloudCenter * R');

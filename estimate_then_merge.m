@@ -57,8 +57,8 @@ function [ out_pointcloud, R, T, iterations_stats ] = estimate_then_merge(useThe
 
         iterations_stats = [iterations_stats; i iterations];
 
-        out_pointcloud = [out_pointcloud;(last_R * output')' + repmat(last_T,length(output),1)];
-        last_T = last_T + T_obtained * last_R';
+        out_pointcloud = [out_pointcloud;(output * last_R) + repmat(last_T,length(output),1)];
+        last_T = last_T + T_obtained * last_R;
         last_R = last_R * R_obtained;
         Base = Target;
         merges_done = merges_done+1;
