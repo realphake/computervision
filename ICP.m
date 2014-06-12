@@ -23,6 +23,7 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
     else
         baseCloud = subsampling(base, sampleSize, sampleTech);
     end
+    searchAssist = baseCloud;
     base_length = length(baseCloud);
     % target is not sampled: the search is done in all its points
     KD_treesearcher = KDTreeSearcher(target);
@@ -38,7 +39,8 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
             baseCloud = subsampling(base, sampleSize, sampleTech);
         end
         % search for the nearest neighbor for every point in the baseCloud
-        IDX = knnsearch(KD_treesearcher,(baseCloud*R_total')-repmat(T_total,base_length,1));
+        searchAssist = (searchAssist - repmat(T,base_length,1)) * R ;
+        IDX = knnsearch(KD_treesearcher,searchAssist);
         %IDX = knnsearch(target,baseCloud);
         targetCloud = target(IDX,:);
         % compute mean for centering
