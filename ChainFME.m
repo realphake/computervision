@@ -11,7 +11,7 @@ function [M,S, pointViewMatrix] = ChainFME( )
     pointViewMatrix(3,:) = f2(1,matchIndexes(2,:));
     pointViewMatrix(4,:) = f2(2,matchIndexes(2,:));
     
-    for i = 2:30
+    for i = 2:48
         [~,matches,~,f2] = FME(sprintf('frame00000%03d.png',i), sprintf('frame00000%03d.png',i+1), 'ransac');
 %         f2(1,:) = f2(1,:) - mean(f2(1,:));
 %         f2(2,:) = f2(2,:) - mean(f2(2,:));
