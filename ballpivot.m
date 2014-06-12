@@ -9,7 +9,7 @@ function [tri, data] = ballpivot( input )
     KD_treesearcher = KDTreeSearcher(data);
     %ro_vec = mean(sqrt((data(1:length(data)-1, 1:3) - data(2:length(data), 1:3)).^2));
     %ro = sqrt(sum(ro_vec.^2));
-    ro = 0.004;
+    ro = 0.0025;
     toBeEvaluated = 1:length(data);
     % keep list of boundary edges
     boundary_edges = zeros(length(data), 2);
@@ -18,14 +18,14 @@ function [tri, data] = ballpivot( input )
     % frozen_edges = [];
     used_indices = zeros(length(data));
     used_indices_counter = 0;
-    tri = zeros(length(data), 3);
+    tri = zeros(length(data)*3, 3);
     tri_counter = 0;
     stillLeft = toBeEvaluated(toBeEvaluated~=0);
     done = 0;
     pause on
     while ~done
         % find seed triangle
-        % pick random point
+        % pick a point somewhere in the middle
         found = 0;
         counter = 0;
         while ~found && ~done
@@ -36,26 +36,42 @@ function [tri, data] = ballpivot( input )
                 I = rangesearch(KD_treesearcher, data(idx,:), ro);
                 I = cell2mat(I);
                 I(ismember(I, used_indices(1:used_indices_counter))) = [];
-                % find the smallest triangle
-                min_dist = ro*3;
-                smallest_triangle = [idx, 0, 0];
+                % find a good triangle
                 for i=I(1:length(I)-1)
                     for j=I(2:length(I))
                         if i ~= j && i ~= idx && j ~= idx
-                            dist = sqrt(sum(sum([data(idx,:)-data(i,:);data(idx,:)-data(j,:);data(j,:)-data(i,:);].^2, 1), 2));
-                            dist12 = sqrt(sum((data(idx,:)-data(i,:)).^2, 2));
-                            dist23 = sqrt(sum((data(i,:)-data(j,:)).^2, 2));
-                            dist31 = sqrt(sum((data(j,:)-data(idx,:)).^2, 2));
-                            if dist < min_dist && dist12 < ro && dist23 < ro && dist31 < ro
-                                min_dist = dist;
-                                smallest_triangle = [idx, i , j];
+                            A = data(idx,:);
+                            B = data(i,:);
+                            C = data(j,:);
+                            % has to intersect with 3 spheres with radius
+                            % ro
+                            [solution0, solution1, err] = sphereIntersection( A, B, C, ro, ro, ro );
+                            if err == 0
+                                A_normal = normals(idx,:);
+                                B_normal = normals(i,:);
+                                C_normal = normals(j,:);
+                                % normal has to coincide with the face normal
+                                % of the 3 points
+                                selection = checkNormals(solution0, solution1, [A;B;C], [A_normal;B_normal;C_normal]);
+
+                                if selection ~= -1
+                                    if selection == 0
+                                        [~, distance ] = rangesearch(KD_treesearcher, solution0, ro);
+                                    else
+                                        [~, distance ] = rangesearch(KD_treesearcher, solution1, ro);
+                                    end
+                                    if length(cell2mat(distance)) == 3
+                                        good_triangle = [idx, i , j];
+                                        found = 1;
+                                        break;
+                                    end
+                                end
                             end
                         end
                     end
+                    if found; break; end;
                 end
-                if ~ismember(0, smallest_triangle)
-                    found = 1;
-                else
+                if ~found
                     counter = counter+1;
                 end
             end
@@ -63,12 +79,13 @@ function [tri, data] = ballpivot( input )
         end
         if ~done
         % keep queue of active edges (i.e. edges that have not been pivoted around yet 
-
-        front = smallest_triangle;
+        front = good_triangle;
+        % active edges are built like this (edge from (1) to (2) that are 
+        % both connected to (3) which is used to calculate the center of the sphere)
         active_edges = [front([1, 2, 3]); front([2, 3, 1]); front([3, 1, 2])];
         % create triangles with the random point where distance between two
         % neighbors is < 2ro
-        tri(tri_counter+1,:) = smallest_triangle;
+        tri(tri_counter+1,:) = good_triangle;
         tri_counter = tri_counter+1;
         % ball pivoting
         active_index = 1;
@@ -78,6 +95,9 @@ function [tri, data] = ballpivot( input )
             A = data(active_edges(active_index,1),:);
             B = data(active_edges(active_index,2),:);
             C = data(active_edges(active_index,3),:);
+            A_normal = normals(active_edges(active_index,1),:);
+            B_normal = normals(active_edges(active_index,2),:);
+            C_normal = normals(active_edges(active_index,3),:);
             midpoint = (A+B)./2;
             % search for neighbors from the midpoint in a 2*ro distance
             neighbors = rangesearch(KD_treesearcher, midpoint, 2* ro);
@@ -94,27 +114,15 @@ function [tri, data] = ballpivot( input )
                 boundary_counter = boundary_counter+1;
             else
                 disp(['Has ', num2str(length(evaluateThese)), ' left to be evaluated.']);
-                min_point = 0;
                 % compute the intersections of three spheres of radius ro
                 % centered in A B and C
-                % trilateration was implemented by Bruno Luong
-                % see the function for license notes
-                [solution0, solution1, ~] = trilateration(A', B', C', [ro, ro, ro]');
-                solution0 = solution0';
-                solution1 = solution1';
-                % for both solutions we check if the normal is pointing in
+                [solution0, solution1, ~] = sphereIntersection( A, B, C, ro, ro, ro );
+                % for both solutions we check which of the normals is pointing in
                 % the same direction as the vertex normals
-                A_normal = normals(active_edges(active_index,1),:);
-                B_normal = normals(active_edges(active_index,2),:);
-                C_normal = normals(active_edges(active_index,3),:);
-                centered_sol0 = solution0 - mean([A; B; evaluatePoints(i,:)]);
-                surfaceNormal0 = centered_sol0 ./ sqrt(sum(centered_sol0.^2, 2));
-                centered_sol1 = solution1 - mean([A; B; evaluatePoints(i,:)]);
-                surfaceNormal1 = centered_sol1 ./ sqrt(sum(centered_sol1.^2, 2));
-                average_face_normal = mean([A_normal;B_normal;C_normal]);
-                if dot(surfaceNormal0, average_face_normal) >= 0
+                selection = checkNormals(solution0, solution1, [A;B;C], [A_normal;B_normal;C_normal]);
+                if selection == 0
                     active_edge_center = solution0 - midpoint;
-                elseif dot(surfaceNormal1, average_face_normal) >= 0
+                else
                     active_edge_center = solution1 - midpoint;
                 end
                 % To properly compute the directed angle between the found
@@ -123,7 +131,7 @@ function [tri, data] = ballpivot( input )
                 % edge
                 norm_aec = active_edge_center ./ sqrt(sum(active_edge_center.^2, 2));
                 length_AB = sqrt(sum((A-B).^2, 2));
-                point_on_AB = project_point_to_line_segment((A-midpoint)*ro/(length_AB*2),(B-midpoint)*ro/(length_AB*2),C-midpoint);
+                point_on_AB = project_point_to_line_segment((A-midpoint)*ro/(length_AB/2),(B-midpoint)*ro/(length_AB/2),C-midpoint);
                 % get normalized vector from that and compute cross product
                 % for a vector that can be rotated to point in the Z
                 % direction
@@ -144,71 +152,95 @@ function [tri, data] = ballpivot( input )
                 % we now have a reference angle that we can use to
                 % determine which way we should rotate
                 % we SHOULD rotate away from this reference point
+                % reference angle should also be the smallest directed
+                % angle from C (the back point of the triangle) to the
+                % active edge center (center of the sphere that lies on top of the triangle)
                 if ref_angle > pi
                     ref_angle = ref_angle-(2*pi);
                 elseif ref_angle < -pi
                     ref_angle = ref_angle+(2*pi);
                 end
                 % intialize these variables
-                centers = zeros(length(evaluateThese), 3);
-                angles = zeros(length(evaluateThese), 1)+2*pi;
+                centers = zeros(length(evaluateThese), 3)*NaN;
+                angles = zeros(length(evaluateThese), 1)*NaN;
                 evaluatePoints = data(evaluateThese, :);
                 evaluateNormals = normals(evaluateThese, :);
+                valid = ones(length(evaluateThese), 1);
                 % start a parallelized for loop to find each center and
                 % compute the angle between the initial ball center and the
                 % found center
                 parfor i=1:length(evaluateThese)
-                    % trilateration was implemented by Bruno Luong
-                    % see the function for license notes
-                    [solution0, solution1, errorflag] = trilateration(A', B', evaluatePoints(i,:)', [ro, ro, ro]');
-                    solution0 = solution0';
-                    solution1 = solution1';
+                    [solution0, solution1, err] = sphereIntersection( A, B, evaluatePoints(i,:), ro, ro, ro );
                     % errorflag 0 means OK, < 0 is not OK
-                    if errorflag == 0
+                    if err == 1
+                        valid(i) = 0;
+                    elseif err == 0
                         % check the normals again
-                        centered_sol0 = solution0 - mean([A; B; evaluatePoints(i,:)])
-                        surfaceNormal0 = centered_sol0 ./ sqrt(sum(centered_sol0.^2, 2));
-                        centered_sol1 = solution1 - mean([A; B; evaluatePoints(i,:)])
-                        surfaceNormal1 = centered_sol1 ./ sqrt(sum(centered_sol1.^2, 2));
-                        average_face_normal = mean([A_normal;B_normal;evaluateNormals(i, :)]);
-                        invalid = 0;
-                        if dot(surfaceNormal0, average_face_normal) >= 0
+                        selection = checkNormals(solution0, solution1, [A;B;evaluatePoints(i,:)], [A_normal;B_normal;evaluateNormals(i, :)]);
+                        % if there are other points inside the sphere it is
+                        % invalid
+                        if selection == 0
+                            [~, distance ] = rangesearch(KD_treesearcher, solution0, ro);
+                            if length(cell2mat(distance)) ~= 3
+                                valid(i) = 0;
+                            end
+                        elseif selection == 1
+                            [~, distance ] = rangesearch(KD_treesearcher, solution1, ro);
+                            if length(cell2mat(distance)) ~= 3
+                                valid(i) = 0;
+                            end
+                        else
+                            valid(i) = 0;
+                        end
+                        if selection == 0
                             centers(i, :) = solution0 - midpoint;
-                        elseif dot(surfaceNormal1, average_face_normal) >= 0
+                        elseif selection == 1
                             centers(i, :) = solution1 - midpoint;
                         else
-                            centers(i, :) = [NaN, NaN, NaN];
-                            invalid = 1;
+                            % we still need an angle
+                            centers(i, :) = solution0 - midpoint;
                         end
-                        % do not accept the point if the normals do not
-                        % coincide
-                        if ~invalid
-                            % we rotate the found center with R to cancel
-                            % out the Z direction
-                            normalized_center = centers(i, :) ./ sqrt(sum(centers(i, :).^2, 2));
+                        % we rotate the found center with R to cancel
+                        % out the Z direction
+                        normalized_center = centers(i, :) ./ sqrt(sum(centers(i, :).^2, 2));
+                        normalized_center = normalized_center * R';
+                        % compute the directed angle between the
+                        % initial center and the found center
+                        angle = atan2(normalized_center(2), normalized_center(1)) - atan2(rotated_aec(2), rotated_aec(1));
+                        % if our reference angle is <0 then the angle
+                        % we want is >0 and vice versa
+                        if ref_angle < 0 && angle < 0
+                            angle = angle+(2*pi);
+                        elseif ref_angle > 0 && angle > 0
+                            angle = angle-(2*pi);
+                        end
+                        angles(i) = angle;
+                        % for the case that the other angle might be
+                        % smaller
+                        if selection == -1
+                            other_center = solution1 - midpoint;
+                            normalized_center = other_center ./ sqrt(sum(other_center.^2, 2));
                             normalized_center = normalized_center * R';
-                            % compute the directed angle between the
-                            % initial center and the found center
-                            angle = atan2(normalized_center(2), normalized_center(1)) - atan2(rotated_aec(2), rotated_aec(1));
-                            % if our reference angle is <0 then the angle
-                            % we want is >0 and vice versa
-                            if ref_angle < 0 && angle < 0
-                                angle = angle+(2*pi);
-                            elseif ref_angle > 0 && angle > 0
-                                angle = angle-(2*pi);
+                            other_angle = atan2(normalized_center(2), normalized_center(1)) - atan2(rotated_aec(2), rotated_aec(1));
+                            if ref_angle < 0 && other_angle < 0
+                                other_angle = other_angle+(2*pi);
+                            elseif ref_angle > 0 && other_angle > 0
+                                other_angle = other_angle-(2*pi);
                             end
-                            angles(i) = angle
+                            if abs(other_angle) < abs(angle)
+                                angles(i) = other_angle;
+                            end
                         end
-                    else
-                        centers(i, :) = [NaN, NaN, NaN];
-                        angles(i) = NaN;
                     end
                 end
                 
+                min_point = 0;
                 % minimum angle neighbor selection
                 if ~isempty(centers(~isnan(centers)))
                     [~, ind] = min(angles);
-                    min_point = evaluateThese(ind);
+                    if valid(ind)
+                        min_point = evaluateThese(ind);
+                    end
                 end
                 
                 % if the first encountered point is not usable then we will
@@ -287,5 +319,23 @@ function [tri, data] = ballpivot( input )
     end
     pause off
     tri = tri(1:tri_counter,:);
+    tri = [tri;stichBoundaries(boundary_edges(boundary_counter,:))];
     trimesh(tri(1:tri_counter,:), data(:, 1), data(:, 2), data(:, 3));
+end
+
+function selection = checkNormals(solution0, solution1, points, normals)
+    % normal has to coincide with the face normal
+    % of the 3 points
+    centered_sol0 = solution0 - mean(points);
+    surfaceNormal0 = centered_sol0 ./ sqrt(sum(centered_sol0.^2, 2));
+    centered_sol1 = solution1 - mean(points);
+    surfaceNormal1 = centered_sol1 ./ sqrt(sum(centered_sol1.^2, 2));
+    average_face_dir = mean(normals);
+    average_face_normal = average_face_dir ./ sqrt(sum(average_face_dir.^2, 2));
+    selection = -1;
+    if dot(surfaceNormal0, average_face_normal) >= 0
+        selection = 0;
+    elseif dot(surfaceNormal1, average_face_normal) >= 0
+        selection = 1;
+    end
 end
