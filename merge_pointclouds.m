@@ -1,4 +1,4 @@
-function [ out_pointcloud, R, T ] = merge_pointclouds(useTheseNumbers, sampleSize, sampleTech, type, maxIterations) 
+function [ out_pointcloud, R, T, iterations_stats ] = merge_pointclouds(useTheseNumbers, sampleSize, sampleTech, type, maxIterations) 
     % useTheseNumbers: a list of image numbers to use example: [0:1:99]
     % sampleSize: total amount of points sampled, except for normal space,
     % which indicates the samples per bin
@@ -15,9 +15,9 @@ function [ out_pointcloud, R, T ] = merge_pointclouds(useTheseNumbers, sampleSiz
     end
     
     if strcmpi( type, 'merge')
-        [out_pointcloud, R, T] = merge_then_estimate(useTheseNumbers, sampleSize, sampleTech, maxIterations);
+        [out_pointcloud, R, T, iterations_stats] = merge_then_estimate(useTheseNumbers, sampleSize, sampleTech, maxIterations);
     elseif strcmpi( type, 'estimate')
-        [out_pointcloud, R, T] = estimate_then_merge(useTheseNumbers, sampleSize, sampleTech, maxIterations);
+        [out_pointcloud, R, T, iterations_stats] = estimate_then_merge(useTheseNumbers, sampleSize, sampleTech, maxIterations);
     else
         disp('Type unknown: exiting');
     end
