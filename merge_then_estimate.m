@@ -34,7 +34,6 @@ function[ out_pointcloud, R, T, iterations_stats ] = merge_then_estimate(useThes
     
     merges_done = 1;
     for i = useTheseNumbers(2:length(useTheseNumbers))
-        disp('Opening pointcloud ', num2str(i));
         % read in the target point cloud
         Base = readPcd(['00000000', sprintf('%02d', i), '.pcd']);
         if ( strcmpi( sampleTech, 'normals' ) )
