@@ -29,9 +29,13 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
     else
         baseCloud = subsampling(base, sampleSize, sampleTech);
     end
+    % search assist is the base cloud which receives the inverted treatment
+    % of the targetcloud, such that the KDtree of target does not have to
+    % change, which would slow this algorithm down considerably
     searchAssist = baseCloud;
     base_length = length(baseCloud);
     % target is not sampled: the search is done in all its points
+    % even though target is updated, the KD_treesearcher is not
     KD_treesearcher = KDTreeSearcher(target);
     error = 0;
     iterations = 0;

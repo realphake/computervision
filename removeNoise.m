@@ -1,4 +1,8 @@
 function [noNoise, normals] = removeNoise(noise, cutoffPoint, normals )
+    % noise: Noisy input data
+    % cutoffPoint: Determines the value at which Z value we remove points
+    % normals: if normals are supplied then the points which do not have
+    % valid normals will also be removed
     noNoiseIndices = noise(:,3) < cutoffPoint;
     noNoise = noise(noNoiseIndices,:);
     noNoise = noNoise(:,1:3);

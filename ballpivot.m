@@ -5,14 +5,14 @@ function [tri, boundary_edges, b_empty, b_alreadyused, b_invalid] = ballpivot( d
     % http://www.research.ibm.com/vistechnology/pdf/bpa_tvcg.pdf
     % ro = radius of the ball that pivots
     KD_treesearcher = KDTreeSearcher(data);
-    if nargin < 3
+    if nargin < 3 || ro == 0;
         % heuristic, take the average point distance between consecutive
         % points
         ro_vec = mean(sqrt((data(1:length(data)-1, 1:3) - data(2:length(data), 1:3)).^2));
         ro = sqrt(sum(ro_vec.^2));
     end
+    % variables to be initialized
     toBeEvaluated = 1:length(data);
-    % keep list of boundary edges
     boundary_edges = zeros(length(data), 2);
     boundary_counter = 0;
     front = [];
@@ -33,16 +33,26 @@ function [tri, boundary_edges, b_empty, b_alreadyused, b_invalid] = ballpivot( d
         counter = 0;
         while ~found && ~done
             if counter == length(stillLeft)
+                % when we've checked everything and haven't found a
+                % triangle then we're done
                 done = 1;
             else
+                % as long as there are points not yet tried we keep finding
+                % seed triangles
                 idx = stillLeft(mod(counter+ceil(length(stillLeft)/2),length(stillLeft))+1);
                 toBeEvaluated(idx) = 0;
+                % find all points within a 2*ro distance
                 I = rangesearch(KD_treesearcher, data(idx,:), 2*ro);
                 I = cell2mat(I);
-                I(ismember(I, [idx;used_indices(1:used_indices_counter); front])) = [];
+                neighbor_data_all = data(I,:);
+                % we don't want to make triangles with points that we've
+                % already used
+                dontUseThese = ismember(I, [idx;used_indices(1:used_indices_counter); front]);
+                neighbor_data = neighbor_data_all(dontUseThese == 0,:);
+                I(dontUseThese) = [];
                 if ~isempty(I)
-                    neighbor_data = data(I,:);
                     distance = sqrt(sum((neighbor_data - repmat(data(idx,:), size(neighbor_data, 1), 1)).^2, 2));
+                    % sort in order of distance from small to large
                     [~, ind_sort]=sort(distance);
                     I = I(ind_sort);
                     % find a good triangle
@@ -63,12 +73,17 @@ function [tri, boundary_edges, b_empty, b_alreadyused, b_invalid] = ballpivot( d
                                     % of the 3 points
                                     selection = checkNormals(solution0, solution1, [A;B;C], [A_normal; B_normal; C_normal]);
                                     if selection ~= -1
+                                        % consider all neighbors when
+                                        % checking if the ball contains no
+                                        % other points
                                         if selection == 0
-                                            distance = sqrt(sum((neighbor_data - repmat(solution0, size(neighbor_data, 1), 1)).^2, 2));
+                                            distance = sqrt(sum((neighbor_data_all - repmat(solution0, size(neighbor_data_all, 1), 1)).^2, 2));
                                         else
-                                            distance = sqrt(sum((neighbor_data - repmat(solution1, size(neighbor_data, 1), 1)).^2, 2));
+                                            distance = sqrt(sum((neighbor_data_all - repmat(solution1, size(neighbor_data_all, 1), 1)).^2, 2));
                                         end
                                         if sum(distance <= ro) == 3
+                                            % when we find a good triangle
+                                            % we're going to continue
                                             good_triangle = [idx, i , j];
                                             found = 1;
                                             break;

@@ -6,19 +6,21 @@ function triangles = stitchBoundaries(boundaryList, data)
     counter = 0;
     while ~isempty(boundaryList)
         % find boundaries that are stringed together
-        
+        % we take the first boundary
         stitchThis = boundaryList(1,:);
         boundaryList(1,:) = [];
         startNewStitch = 1;
+        % as long as we are still stitching up a single hole
         while startNewStitch || found
-            startNewStitch = 0;
             found = 0;
+            % we find the boundaries that link to the stitchThis boundary
             [row1, col1] = find(boundaryList == stitchThis(1));
             [row2, col2] = find(boundaryList == stitchThis(2));
             min_dist = inf;
             min_row = 0;
+            % determine the would be created edge with the smallest length
             if ~isempty(row1)
-                for i=length(row1)
+                for i=1:length(row1)
                     dist = sqrt(sum((data(boundaryList(row1(i), mod(col1(i), 2)+1), :) - data(stitchThis(2))).^2, 2));
                     if dist < min_dist && boundaryList(row1(i), mod(col1(i), 2)+1) ~= stitchThis(2)
                         min_dist = dist;
@@ -29,8 +31,9 @@ function triangles = stitchBoundaries(boundaryList, data)
                     end
                 end
             end
-            if ~isempty(row2)
-                for i=length(row2)
+            % by only using row1 we alternate our stitches
+            if (startNewStitch || ~found) && ~isempty(row2)
+                for i=1:length(row2)
                     dist = sqrt(sum((data(boundaryList(row2(i), mod(col2(i), 2)+1), :) - data(stitchThis(1))).^2, 2));
                     if dist < min_dist && boundaryList(row2(i), mod(col2(i), 2)+1) ~= stitchThis(1)
                         min_dist = dist;
@@ -42,11 +45,13 @@ function triangles = stitchBoundaries(boundaryList, data)
                 end
             end
             if found
+                % create a triangle with the found boundary edge
                 triangles(counter+1, :) = [stitchThis, stitchTo];
                 counter = counter +1;
                 stitchThis = [stitchFrom, stitchTo];
                 boundaryList(min_row, :)= [];
             end
+            startNewStitch = 0;
         end
     end
     triangles = triangles(1:counter, :);

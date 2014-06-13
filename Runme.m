@@ -1,29 +1,52 @@
 % tested using matlab 2012b
-PC = readPcd('Norbert Heijne.pcd');
-
-% sample uniformly
-
+% parameters
+% pointcloud used
+PC = readPcd('Norbert Heijne.pcd'); % or arjen swellengrebel.pcd
+% ballradius used for BPA, 0.004 is default, if 0 or not given then the
+% algorithm will use a heuristic to estimate the radius
+ballradius = 0.004;
+% the amount of neighbors used for normal smoothing
+neighbors_for_smoothing = 16;
+% sample density from 0 to 1
+density = 0.5;
+% outlier tolerance, points that have a distance from the mean of the data
+% larger than the mean_distance + tolerance * std_distance are cut off
+tolerance = 2;
+%first 1000 points for illustration
+%raw_datapoints = PC(1:1000, 1:3);
+%raw_normals = PC(1:1000, 5:7);
 % the head also makes for a good illustration
 head = PC(PC(:, 2) < -0.5,:);
-datapoints = head(:, 1:3);
-normals = head(:, 5:7);
-%first 1000 points for illustration
-%datapoints = PC(1:1000, 1:3);
-%normals = PC(1:1000, 5:7);
-ballradius = 0.004;
-outliers = findPcdOutliers(datapoints);
+raw_datapoints = head(:, 1:3); % change to PC for entire mesh: PC(1:3, 5:7);
+raw_normals = head(:, 5:7); % change to PC for entire mesh: PC(1:3, 5:7);
+% sample uniformly with density as parameter
+stepsize = ceil(size(raw_datapoints,1)/ceil(size(raw_datapoints,1)*density));
+datapoints = raw_datapoints( 1:stepsize:size(raw_datapoints,1), : );
+normals = raw_normals(1:stepsize:size(raw_normals,1), :);
+% noisy data comes with outliers, we filter them out
+outliers = findPcdOutliers(datapoints, tolerance);
 datapoints(outliers,:) = [];
 normals(outliers,:) = [];
-smoothedNormals = smoothNormals( datapoints, normals, 16 );
+% smoothing the normals, kinect normals aren't all that reliable
+smoothedNormals = smoothNormals( datapoints, normals, neighbors_for_smoothing );
+% performing the BPA
 [tri, boundaries,b_empty, b_alreadyused, b_invalid] = ballpivot(datapoints, smoothedNormals, ballradius);
+% stitching together the boundaries to make it watertight
 boundaryfaces = stitchBoundaries(boundaries, datapoints);
 boundaryfaces = unique(boundaryfaces, 'rows');
-% also want to show normals and points which have been missed
 
+% the resulting mesh
+end_result = [tri;boundaryfaces];
+
+% visualize
 hold on
+% the mesh from BPA
 trimesh(tri, datapoints(:, 1), datapoints(:, 2), datapoints(:, 3), 'FaceColor',[0.8, 0.8, 0.8]);
+% the mesh from the stitching
 trimesh(boundaryfaces, datapoints(:, 1), datapoints(:, 2), datapoints(:, 3), 'FaceColor',[0.4, 0.4, 0.4]);
+% visualizing the normals
 quiver3(datapoints(:,1),datapoints(:,2),datapoints(:,3),normals(:,1),normals(:,2),normals(:,3), 0.5);
+% visualizing the boundaries
 A = datapoints(boundaries(:, 1), :);
 B = datapoints(boundaries(:, 2), :);
 x = [A(:,1), B(:,1)]';

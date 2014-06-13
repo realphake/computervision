@@ -1,3 +1,5 @@
+% this file is used to gather data for the first assignment
+
 %[out_est_uni100, R_est_uni100, T_est_uni100, iter_est_uni100] = merge_pointclouds([0:99], 100, 'uniform', 'estimate', 400);
 
 %[out_est_ran100, R_est_ran100, T_est_ran100, iter_est_ran100] = merge_pointclouds([0:99], 100, 'random', 'estimate', 400);
