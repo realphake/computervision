@@ -1,4 +1,4 @@
-function [tri, boundary_edges] = ballpivot( data, normals, ro)
+function [tri, boundary_edges, b_empty, b_alreadyused, b_invalid] = ballpivot( data, normals, ro)
     % POINTCLOUD2TRIANGLES 
     % delaunay doesn't work properly, trying ball pivoting algorithm
     % patented by IBM, does this matter?
@@ -16,12 +16,15 @@ function [tri, boundary_edges] = ballpivot( data, normals, ro)
     boundary_edges = zeros(length(data), 2);
     boundary_counter = 0;
     front = [];
-    used_indices = zeros(length(data));
+    used_indices = zeros(length(data), 1);
     used_indices_counter = 0;
     tri = zeros(length(data)*3, 3);
     tri_counter = 0;
     stillLeft = toBeEvaluated(toBeEvaluated~=0);
     done = 0;
+    b_empty = [];
+    b_alreadyused = [];
+    b_invalid = [];
     pause on
     while ~done
         % find seed triangle
@@ -33,43 +36,49 @@ function [tri, boundary_edges] = ballpivot( data, normals, ro)
                 done = 1;
             else
                 idx = stillLeft(mod(counter+ceil(length(stillLeft)/2),length(stillLeft))+1);
-                I = rangesearch(KD_treesearcher, data(idx,:), ro);
+                toBeEvaluated(idx) = 0;
+                I = rangesearch(KD_treesearcher, data(idx,:), 2*ro);
                 I = cell2mat(I);
-                I(ismember(I, used_indices(1:used_indices_counter))) = [];
-                % find a good triangle
-                mean_normals = mean(normals(I, :));
-                for i=I(1:length(I)-1)
-                    for j=I(2:length(I))
-                        if i ~= j && i ~= idx && j ~= idx
-                            A = data(idx,:);
-                            B = data(i,:);
-                            C = data(j,:);
-                            % has to intersect with 3 spheres with radius
-                            % ro
-                            [solution0, solution1, err] = sphereIntersection( A, B, C, ro, ro, ro );
-                            if err == 0
-                                %A_normal = normals(idx,:);
-                                %B_normal = normals(i,:);
-                                %C_normal = normals(j,:);
-                                % normal has to coincide with the face normal
-                                % of the 3 points
-                                selection = checkNormals(solution0, solution1, [A;B;C], mean_normals);
-                                if selection ~= -1
-                                    if selection == 0
-                                        [~, distance ] = rangesearch(KD_treesearcher, solution0, ro);
-                                    else
-                                        [~, distance ] = rangesearch(KD_treesearcher, solution1, ro);
-                                    end
-                                    if length(cell2mat(distance)) == 3
-                                        good_triangle = [idx, i , j];
-                                        found = 1;
-                                        break;
+                I(ismember(I, [idx;used_indices(1:used_indices_counter); front])) = [];
+                if ~isempty(I)
+                    neighbor_data = data(I,:);
+                    distance = sqrt(sum((neighbor_data - repmat(data(idx,:), size(neighbor_data, 1), 1)).^2, 2));
+                    [~, ind_sort]=sort(distance);
+                    I = I(ind_sort);
+                    % find a good triangle
+                    for i=I(1:length(I)-1)
+                        for j=I(2:length(I))
+                            if i ~= j && i ~= idx && j ~= idx
+                                A = data(idx,:);
+                                B = data(i,:);
+                                C = data(j,:);
+                                % has to intersect with 3 spheres with radius
+                                % ro
+                                [solution0, solution1, err] = sphereIntersection( A, B, C, ro, ro, ro );
+                                if err == 0
+                                    A_normal = normals(idx,:);
+                                    B_normal = normals(i,:);
+                                    C_normal = normals(j,:);
+                                    % normal has to coincide with the face normal
+                                    % of the 3 points
+                                    selection = checkNormals(solution0, solution1, [A;B;C], [A_normal; B_normal; C_normal]);
+                                    if selection ~= -1
+                                        if selection == 0
+                                            distance = sqrt(sum((neighbor_data - repmat(solution0, size(neighbor_data, 1), 1)).^2, 2));
+                                        else
+                                            distance = sqrt(sum((neighbor_data - repmat(solution1, size(neighbor_data, 1), 1)).^2, 2));
+                                        end
+                                        if sum(distance <= ro) == 3
+                                            good_triangle = [idx, i , j];
+                                            found = 1;
+                                            break;
+                                        end
                                     end
                                 end
                             end
                         end
+                        if found; break; end;
                     end
-                    if found; break; end;
                 end
                 if ~found
                     counter = counter+1;
@@ -79,10 +88,10 @@ function [tri, boundary_edges] = ballpivot( data, normals, ro)
         end
         if ~done
         % keep queue of active edges (i.e. edges that have not been pivoted around yet 
-        front = [front,good_triangle];
+        front = [front;good_triangle'];
         % active edges are built like this (edge from (1) to (2) that are 
         % both connected to (3) which is used to calculate the center of the sphere)
-        active_edges = [front([1, 2, 3]); front([2, 3, 1]); front([3, 1, 2])];
+        active_edges = [good_triangle([1, 2, 3]); good_triangle([2, 3, 1]); good_triangle([3, 1, 2])];
         % create triangles with the random point where distance between two
         % neighbors is < 2ro
         tri(tri_counter+1,:) = good_triangle;
@@ -109,6 +118,7 @@ function [tri, boundary_edges] = ballpivot( data, normals, ro)
             if isempty(evaluateThese)
                 % if the initial triangle is are the only points within
                 % reach then add to boundary
+                b_empty = [b_empty;active_edges(active_index,1), active_edges(active_index,2)];
                 disp('No valid points within reach, adding to boundary');
                 boundary_edges(boundary_counter+1,:) = [active_edges(active_index,1), active_edges(active_index,2)];
                 boundary_counter = boundary_counter+1;
@@ -119,8 +129,7 @@ function [tri, boundary_edges] = ballpivot( data, normals, ro)
                 [solution0, solution1, ~] = sphereIntersection( A, B, C, ro, ro, ro );
                 % for both solutions we check which of the normals is pointing in
                 % the same direction as the vertex normals
-                mean_normals = mean(normals(evaluateThese, :));
-                selection = checkNormals(solution0, solution1, [A;B;C], mean_normals);
+                selection = checkNormals(solution0, solution1, [A;B;C], [A_normal; B_normal; C_normal]);
                 if selection == 0
                     active_edge_center = solution0 - midpoint;
                 elseif selection == 1
@@ -168,8 +177,8 @@ function [tri, boundary_edges] = ballpivot( data, normals, ro)
                 angles = zeros(length(evaluateThese), 1)*NaN;
                 evaluatePoints = data(evaluateThese, :);
                 evaluateNormals = normals(evaluateThese, :);
-                mean_normals = mean(evaluateNormals);
-                valid = ones(length(evaluateThese));
+                valid = ones(length(evaluateThese), 1);
+                neighbor_data = data(neighbors,:);
                 % start a parallelized for loop to find each center and
                 % compute the angle between the initial ball center and the
                 % found center
@@ -180,22 +189,18 @@ function [tri, boundary_edges] = ballpivot( data, normals, ro)
                         valid(i) = 0;
                     elseif err == 0
                         % check the normals again
-                        selection = checkNormals(solution0, solution1, [A;B;evaluatePoints(i,:)], mean_normals);
+                        %
+                        selection = checkNormals(solution0, solution1, [A;B;evaluatePoints(i,:)], [A_normal; B_normal; evaluateNormals(i, :)]);
                         % if there are other points inside the sphere it is
                         % invalid
-                        % 
                         if selection == 0
-                            indices = rangesearch(KD_treesearcher, solution0, ro);
-                            indices = cell2mat(indices);
-                            indices(ismember(indices, [active_edges(active_index,1), active_edges(active_index,2), evaluateThese(i)])) = [];
-                            if ~isempty(indices)
+                            distance = sqrt(sum((neighbor_data - repmat(solution0, size(neighbor_data, 1), 1)).^2, 2));
+                            if sum(distance <= ro) > 3
                                 valid(i) = 0;
                             end
                         elseif selection == 1
-                            indices = rangesearch(KD_treesearcher, solution1, ro);
-                            indices = cell2mat(indices);
-                            indices(ismember(indices, [active_edges(active_index,1), active_edges(active_index,2), evaluateThese(i)])) = [];
-                            if ~isempty(indices)
+                            distance = sqrt(sum((neighbor_data - repmat(solution1, size(neighbor_data, 1), 1)).^2, 2));
+                            if sum(distance <= ro) > 3
                                 valid(i) = 0;
                             end
                         else
@@ -244,11 +249,14 @@ function [tri, boundary_edges] = ballpivot( data, normals, ro)
                 end
                 
                 min_point = 0;
+                invalid_point = 0; 
                 % minimum angle neighbor selection
                 if ~isempty(centers(~isnan(centers)))
                     [~, ind] = min(abs(angles));
                     if valid(ind)
                         min_point = evaluateThese(ind);
+                    else
+                        invalid_point = 1; 
                     end
                 end
                 
@@ -274,7 +282,7 @@ function [tri, boundary_edges] = ballpivot( data, normals, ro)
                          disp('Adding point to front and active edges');
                          % is a new point so we don't have to glue
                          active_edges = [active_edges; active_edges(active_index,1), min_point, active_edges(active_index,2); min_point, active_edges(active_index,2), active_edges(active_index,1)];
-                         front = [front, min_point];
+                         front = [front; min_point];
                      else
                          disp('Glueing');
                          % we'll have to glue
@@ -295,27 +303,32 @@ function [tri, boundary_edges] = ballpivot( data, normals, ro)
                              front(front == active_edges(active_index,2)) = [];
                          end
                          output1 = quickfind2d(active_edges(:,[1,2]), min_point, active_edges(active_index,1));
-                         output2 = quickfind2d(active_edges(:,[1,2]), min_point, active_edges(active_index,2));
                          if isempty(output1)
-                             active_edges = [active_edges; min_point, active_edges(active_index,2), active_edges(active_index,1) ];
+                             active_edges = [active_edges; min_point, active_edges(active_index,1), active_edges(active_index,2) ];
                          elseif output1 > active_index
                              active_edges(output1, :) = [];
                          end
+                         output2 = quickfind2d(active_edges(:,[1,2]), min_point, active_edges(active_index,2));
                          if isempty(output2)
-                             active_edges = [active_edges; active_edges(active_index,1), min_point, active_edges(active_index,2)];
+                             active_edges = [active_edges; active_edges(active_index,2), min_point, active_edges(active_index,1)];
                          elseif output2 > active_index
                              active_edges(output2, :) = [];
                          end
                          output3 = quickfind2d(boundary_edges(:,[1,2]), min_point, active_edges(active_index,1));
-                         output4 = quickfind2d(boundary_edges(:,[1,2]), min_point, active_edges(active_index,2));
                          if ~isempty(output3)
                              boundary_edges(output3, :) = [];
                          end
+                         output4 = quickfind2d(boundary_edges(:,[1,2]), min_point, active_edges(active_index,2));
                          if ~isempty(output4)
                              boundary_edges(output4, :) = [];
                          end
                      end
                  else
+                     if foundAlreadyUsed
+                         b_alreadyused = [b_alreadyused;active_edges(active_index,1), active_edges(active_index,2)];
+                     elseif invalid_point
+                         b_invalid = [b_invalid;active_edges(active_index,1), active_edges(active_index,2)];
+                     end
                      disp('Could not find point within reach, adding to boundary');
                      boundary_edges(boundary_counter+1,:) = [active_edges(active_index,1), active_edges(active_index,2)];
                      boundary_counter = boundary_counter+1;
@@ -331,15 +344,26 @@ function [tri, boundary_edges] = ballpivot( data, normals, ro)
         toBeEvaluated(front) = 0;
         stillLeft = toBeEvaluated(toBeEvaluated~=0);
         %used_indices(used_indices_counter+1:used_indices_counter+length(front)) = front;
-        used_indices_counter = used_indices_counter+length(front);
+        %used_indices_counter = used_indices_counter+length(front);
         end
     end
     pause off
     tri = tri(1:tri_counter,:);
     boundary_edges = boundary_edges(1:boundary_counter, :);
+    [row, col] = find(boundary_edges==0);
+    row = unique(row);
+    boundary_edges(row,:) = [];
+    [row, col] = find(b_empty==0);
+    row = unique(row);
+    b_empty(row,:) = [];
+    [row, col] = find(b_invalid==0);
+    row = unique(row);
+    b_invalid(row,:) = [];
+    [row, col] = find(b_alreadyused==0);
+    row = unique(row);
+    b_alreadyused(row,:) = [];
     %tri = [tri;stitchBoundaries(boundary_edges)];
     tri = unique(tri, 'rows');
-    trimesh(tri, data(:, 1), data(:, 2), data(:, 3));
 end
 
 function selection = checkNormals(solution0, solution1, points, normals)
@@ -352,7 +376,7 @@ function selection = checkNormals(solution0, solution1, points, normals)
     if size(normals, 1) == 1
         average_face_dir = normals;
     else
-        average_face_dir = mean(normals);
+        average_face_dir = mean(normals, 1);
     end
     average_face_normal = average_face_dir ./ sqrt(sum(average_face_dir.^2, 2));
     selection = -1;

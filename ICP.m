@@ -24,6 +24,8 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
     T_total = [0, 0, 0];
     if ( strcmpi( sampleTech, 'normals' ) ) && nargin == 6
         baseCloud = subsampling(base, sampleSize, sampleTech, targetNormals);
+    elseif ( strcmpi( sampleTech, 'random' ) )
+        baseCloud = base(subsampling(base, sampleSize, sampleTech),:);
     else
         baseCloud = subsampling(base, sampleSize, sampleTech);
     end
@@ -40,8 +42,9 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
         target = (target * R') + repmat(T,length(target),1);
         % only needs resampling if random, the other methods are deterministic
         if strcmpi( sampleTech, 'random' ) 
-            baseCloud = subsampling(base, sampleSize, sampleTech);
-            searchAssist = (baseCloud * R_assist_total) + repmat(T_assist_total,base_length,1);
+            indices = subsampling(base, sampleSize, sampleTech);
+            baseCloud = base(indices,:);
+            searchAssist = (baseCloud*R_assist_total) + repmat(T_assist_total,base_length,1);
         else
             searchAssist = (searchAssist*R_assist') + repmat(T_assist,base_length,1);
         end
@@ -65,8 +68,8 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
         % matched clouds
         T = baseCloudCenter - (targetCloudCenter * R');
         T_assist = targetCloudCenter - ( baseCloudCenter * R_assist');
-        T_total = T_total + T;
-        T_assist_total = T_assist_total + T_assist;
+        T_total = T_total*R'+ T;
+        T_assist_total = T_assist_total*R_assist' + T_assist;
         % we update the target cloud to compute the error
         targetCloud = (targetCloud * R') + repmat(T,base_length,1);
         old_error = error;
@@ -95,7 +98,7 @@ function out = subsampling(in, sampleSize, technique, normals)
         out = uniformSubsampling(in, sampleSize);
     end
     if ( strcmpi( technique, 'random' ) )
-        out = in(randsample(length(in), sampleSize), :);
+        out = randsample(length(in), sampleSize);
     end
     if ( strcmpi( technique, 'normals' ) ) && nargin == 4
         out = sampleNormalSpace(in, sampleSize, normals);
