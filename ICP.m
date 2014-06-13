@@ -15,8 +15,12 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
     %           as some bins might have datapoints < sampleSize
 
     R = eye(3);
+    R_assist = eye(3);
     R_total = eye(3);
+    R_assist_total = eye(3);
     T = [0, 0, 0];
+    T_assist = T;
+    T_assist_total = T;
     T_total = [0, 0, 0];
     if ( strcmpi( sampleTech, 'normals' ) ) && nargin == 6
         baseCloud = subsampling(base, sampleSize, sampleTech, targetNormals);
@@ -26,7 +30,7 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
     searchAssist = baseCloud;
     base_length = length(baseCloud);
     % target is not sampled: the search is done in all its points
-    KD_treesearcher = KDTreeSearcher(target);
+    %KD_treesearcher = KDTreeSearcher(target);
     error = 0;
     iterations = 0;
     epsilon_err = 0.000000000000001;
@@ -37,25 +41,32 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
         % only needs resampling if random, the other methods are deterministic
         if strcmpi( sampleTech, 'random' ) 
             baseCloud = subsampling(base, sampleSize, sampleTech);
+            searchAssist = (baseCloud * R_assist_total) + repmat(T_assist_total,base_length,1);
+        else
+            searchAssist = (searchAssist*R_assist') + repmat(T_assist,base_length,1);
         end
         % search for the nearest neighbor for every point in the baseCloud
-        searchAssist = (searchAssist - repmat(T,base_length,1)) * R ;
         IDX = knnsearch(KD_treesearcher,searchAssist);
-        %IDX = knnsearch(target,baseCloud);
+        %IDX = knnsearch(target,baseCloud, 'NSMethod', 'kdtree');
         targetCloud = target(IDX,:);
         % compute mean for centering
         baseCloudCenter = mean(baseCloud,1);
         targetCloudCenter = mean(targetCloud,1);
         % perform SVD on the matrix as explained in the paper
         A = (baseCloud - repmat(baseCloudCenter, base_length,1))' * (targetCloud - repmat(targetCloudCenter, base_length,1));
-        [U,S,V] = svd(A);
+        [U,~,V] = svd(A);
+        [U2,~,V2] = svd(A');
         % get rotation from the SVD
         R = U*V';
         R_total = R_total*R';
+        R_assist = U2 * V2';
+        R_assist_total = R_assist_total * R_assist';
         % after rotating the target cloud we calculate the distance between
         % matched clouds
         T = baseCloudCenter - (targetCloudCenter * R');
+        T_assist = targetCloudCenter - ( baseCloudCenter * R_assist');
         T_total = T_total + T;
+        T_assist_total = T_assist_total + T_assist;
         % we update the target cloud to compute the error
         targetCloud = (targetCloud * R') + repmat(T,base_length,1);
         old_error = error;
