@@ -30,7 +30,7 @@ function [output, R_total, T_total, iterations] = ICP( base, target, sampleSize,
     searchAssist = baseCloud;
     base_length = length(baseCloud);
     % target is not sampled: the search is done in all its points
-    %KD_treesearcher = KDTreeSearcher(target);
+    KD_treesearcher = KDTreeSearcher(target);
     error = 0;
     iterations = 0;
     epsilon_err = 0.000000000000001;
